@@ -1,5 +1,6 @@
-#import <iostream>
+#include <iostream>
 #include <stdlib.h>
+#include <sstream>
 
 using namespace std;
 
@@ -23,4 +24,15 @@ int main(int argc, char const *argv[])
   cout << "SERVER_PORT " << SERVER_PORT << endl;
 
   return 0;
+}
+
+string upperCase(string input)
+{
+  stringstream ss;
+  ss << input;
+  string word, output;
+  while (ss >> word)
+  {
+    output += word.substring(0, 1);
+  }
 }

@@ -1,6 +1,6 @@
 all:
-	@g++ -o stringServer server.cc
-	@g++ -o stringClient client.cc
+	@gcc -o stringServer server.c
+	@gcc -o stringClient client.c
 
 test:
 	@make all

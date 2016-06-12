@@ -4,4 +4,10 @@ all:
 
 test:
 	@make all
-	@SERVER_ADDRESS=127.0.0.1 SERVER_PORT=8000 ./stringServer
+	@make runServer
+
+runClient:
+	@SERVER_ADDRESS=127.0.0.1 SERVER_PORT=8000 ./stringClient
+
+runServer:
+	@./stringServer

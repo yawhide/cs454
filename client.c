@@ -9,8 +9,6 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 
-#define PORT "8000" // the port client will be connecting to
-
 #define MAXDATASIZE 255 // max number of bytes we can get at once
 
 void *get_in_addr(struct sockaddr *sa)
@@ -24,9 +22,12 @@ void *get_in_addr(struct sockaddr *sa)
 
 int main(int argc, char *argv[])
 {
+  char* SERVER_ADDRESS;
+  char* SERVER_PORT;
+  SERVER_ADDRESS = getenv("SERVER_ADDRESS");
+  SERVER_PORT = getenv("SERVER_PORT");
+
   int sockfd, numbytes;
-  char buf[MAXDATASIZE];
-  bzero(buf, MAXDATASIZE);
   struct addrinfo hints, *servinfo, *p;
   int rv;
   char ipstr[INET6_ADDRSTRLEN];
@@ -35,7 +36,7 @@ int main(int argc, char *argv[])
   hints.ai_family = AF_UNSPEC;
   hints.ai_socktype = SOCK_STREAM;
 
-  if ((rv = getaddrinfo("127.0.0.1", PORT, &hints, &servinfo)) != 0)
+  if ((rv = getaddrinfo(SERVER_ADDRESS, SERVER_PORT, &hints, &servinfo)) != 0)
   {
     fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
     return 1;
@@ -70,30 +71,86 @@ int main(int argc, char *argv[])
   printf("client: connecting to %s\n", ipstr);
 
   freeaddrinfo(servinfo); // all done with this structure
-
-  fgets(buf,255,stdin);
-  int bufLen = strlen(buf);
-  if (buf[bufLen - 1] == '\n')
+  while(1)
   {
-    buf[bufLen - 1] = '\0';
-  }
-  printf("length of buf: %d\n", strlen(buf));
-  if (write(sockfd, buf, strlen(buf)) == -1)
-  {
-    perror("ERROR writing to socket");
+    char buf[MAXDATASIZE];
+    bzero(buf, MAXDATASIZE);
+    fgets(buf,255,stdin);
+    int tmpBufLen = strlen(buf);
+    // gets rid of the newline char
+    if (buf[tmpBufLen - 1] == '\n')
+    {
+      buf[tmpBufLen - 1] = '\0';
+    }
+    tmpBufLen = strlen(buf) + 1;
+    printf("tmp length of buf w/o newline: %d\n", tmpBufLen);
+    char msgPrefix[4];
+    // convert strlen(buf) + 1 to string
+    int len = tmpBufLen;
+    int divider = 1000;
+    int counter = 0;
+    while (counter < 4)
+    {
+      int tmpNum = len / divider;
+      if (tmpNum != 0)
+      {
+        len -= (tmpNum * divider);
+      }
+      msgPrefix[counter] = tmpNum + '0';
+      divider /= 10;
+      counter++;
+    }
+    // sprintf(msgPrefix, "%d", tmpBufLen);
+    printf("msgPrefix: '%c, %c, %c, %c'\n", msgPrefix[0], msgPrefix[1], msgPrefix[2], msgPrefix[3]);
+
+    // shift buf to the right 4 indicies to make room for size of msg
+    for (int i = tmpBufLen - 1; i >= 0; i--)
+    {
+      buf[i+4] = buf[i];
+    }
+    for (int i = 0; i < 4; i++)
+    {
+      buf[i] = msgPrefix[i];
+    }
+    tmpBufLen += 4;
+    printf("final formatted msg: '%s', last char is '\\0': %d\n", buf, buf[tmpBufLen] == '\0');
+
+    if (write(sockfd, buf, tmpBufLen) == -1)
+    {
+      perror("ERROR writing to socket");
+    }
+
+    if ((numbytes = read(sockfd, buf, MAXDATASIZE-1)) == -1)
+    {
+      perror("recv");
+      exit(1);
+    }
+
+    buf[numbytes] = '\0';
+    printf("Server: ");
+    for (int i = 4; i < numbytes; ++i)
+    {
+      printf("%c", buf[i]);
+    }
+    printf("\n");
   }
 
-  if ((numbytes = read(sockfd, buf, MAXDATASIZE-1)) == -1)
-  {
-    perror("recv");
-    exit(1);
-  }
-
-  buf[numbytes] = '\0';
-  printf("client: received '%s'\n", buf);
   close(sockfd);
 
   return 0;
 }
 
 
+//TODO
+/*
+- sleep for 2 seconds before sending each subsequent msg
+- allow multiplexing (aka you can get input from user AND send/receive msgs)
+- on eof, wait until you receive all the sent requests before exiting
+- ?????? unsure what to do if message is > 251 chars ???????
+- what is the point of having the string length at the beginning of the message
+*/
+
+/* done
+- 4 byte value of strlen(text) + 1, prepend that to the message we send along
+
+*/

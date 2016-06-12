@@ -16,6 +16,9 @@
 
 #define MAXDATASIZE 256
 
+#define SERVER_ADDRESS "127.0.0.1"
+#define SERVER_PORT "8000"
+
 void sigchld_handler(int s)
 {
   // waitpid() might overwrite errno, so we save and restore it:
@@ -62,22 +65,6 @@ void *get_in_addr(struct sockaddr *sa)
 
 int main(int argc, char const *argv[])
 {
-  char* SERVER_ADDRESS;
-  char* SERVER_PORT;
-  SERVER_ADDRESS = getenv("SERVER_ADDRESS");
-  SERVER_PORT = getenv("SERVER_PORT");
-  // if (SERVER_ADDRESS == NULL)
-  // {
-  //   cout << "SERVER_ADDRESS not provided in environment variables" << endl;
-  //   return 1;
-  // }
-  // if (SERVER_PORT == NULL)
-  // {
-  //   cout << "SERVER_PORT not provided in environment variables" << endl;
-  //   return 1;
-  // }
-  // cout << "SERVER_ADDRESS " << SERVER_ADDRESS << endl;
-  // cout << "SERVER_PORT " << SERVER_PORT << endl;
   printf("SERVER_ADDRESS %s\nSERVER_PORT %s\n", SERVER_ADDRESS, SERVER_PORT);
 
   int sockfd;

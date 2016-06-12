@@ -92,10 +92,12 @@ int main(int argc, char *argv[]) {
       }
 
       // shift buf to the right 4 indicies to make room for size of msg
-      for (int i = tmpBufLen - 1; i >= 0; i--) {
+      int i = tmpBufLen - 1;
+      for (; i >= 0; i--) {
         buf[i+4] = buf[i];
       }
-      for (int i = 0; i < 4; i++) {
+      i = 0;
+      for (; i < 4; i++) {
         buf[i] = msgPrefix[i];
       }
       tmpBufLen += 4;
@@ -112,7 +114,8 @@ int main(int argc, char *argv[]) {
 
       buf[numbytes] = '\0';
       printf("Server: ");
-      for (int i = 4; i < numbytes; ++i) {
+      i = 4;
+      for (; i < numbytes; ++i) {
         printf("%c", buf[i]);
       }
       printf("\n");

@@ -177,7 +177,8 @@ int main(int argc, char const *argv[]) {
         if (buf[4] != ' ') {
           buf[4] = toupper(buf[4]);
         }
-        for (int i = 5; i < strlen(buf); i++) {
+        int i = 5;
+        for (; i < strlen(buf); i++) {
           if (buf[i - 1] == ' ') {
             buf[i] = toupper(buf[i]);
             continue;
@@ -188,7 +189,8 @@ int main(int argc, char const *argv[]) {
         }
       }
       printf("Client response: ");
-      for (int i = 4; i < numbytes; ++i){
+      int i = 4;
+      for (; i < numbytes; ++i){
         printf("%c", buf[i]);
       }
       printf("\n");

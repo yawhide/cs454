@@ -75,8 +75,10 @@ int main(int argc, char const *argv[]) {
   memset(&hints, 0, sizeof hints);
   hints.ai_family = AF_UNSPEC;
   hints.ai_socktype = SOCK_STREAM;
+  hints.ai_flags = AI_PASSIVE;
 
-  if ((status = getaddrinfo("127.0.0.1", 0, &hints, &servinfo)) != 0) {
+  if ((status = getaddrinfo(NULL, "0", &hints, &servinfo)) != 0) {
+    printf("%d\n", status);
     fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(status));
     return 1;
   }
@@ -107,10 +109,15 @@ int main(int argc, char const *argv[]) {
   }
   char* SERVER_ADDRESS = inet_ntoa(our_addr.sin_addr);
   int SERVER_PORT = ntohs(our_addr.sin_port);
-  FILE *f = fopen(".serverport", "w");
+  FILE* f = fopen(".serverport", "w");
   if (f != NULL) {
     fprintf(f, "%d", SERVER_PORT);
     fclose(f);
+  }
+  FILE* fAddr = fopen(".serveraddr", "w");
+  if (fAddr != NULL) {
+    fprintf(fAddr, "%s", SERVER_ADDRESS);
+    fclose(fAddr);
   }
 
   printf("SERVER_ADDRESS %s\nSERVER_PORT %d\n", SERVER_ADDRESS, SERVER_PORT);

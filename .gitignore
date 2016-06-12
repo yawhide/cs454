@@ -31,3 +31,4 @@
 stringClient
 stringServer
 .serverport
+.serveraddr

@@ -6,10 +6,11 @@ test:
 	@make all
 	@make runServer
 
+ADDR=`cat .serveraddr`
 PORT=`cat .serverport`
 
 runClient:
-	@SERVER_ADDRESS=127.0.0.1 SERVER_PORT=$(PORT) ./stringClient
+	@SERVER_ADDRESS=$(ADDR) SERVER_PORT=$(PORT) ./stringClient
 
 runServer:
 	@./stringServer

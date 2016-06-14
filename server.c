@@ -13,8 +13,7 @@
 #include <signal.h>
 #include <sys/time.h>
 
-#define BACKLOG 20
-
+#define MAX_CLIENT 5
 #define MAXDATASIZE 256
 
 void sigchld_handler(int s) {
@@ -35,80 +34,99 @@ void *get_in_addr(struct sockaddr *sa) {
     return &(((struct sockaddr_in6*)sa)->sin6_addr);
 }
 
-// string upperCase(string input)
-// {
-//   stringstream ss;
-//   ss << input;
-//   int length;
-//   string word, output;
-//   ss >> length;
-//   cout << "length of proceding string is: " << length << endl;
-//   while (ss >> word)
-//   {
-//     //output += word.substring(0, 1);
-//     cout << word << endl;
-//     word[0] = toupper(word[0]);
-//     output += word;
-//     output += " ";
-//   }
-//   int outputLength = output.size();
-//   if (outputLength > 0 && output[outputLength - 1] == ' ')
-//   {
-//     output.resize(outputLength - 1);
-//   }
-//   return output;
-// }
+void modifyBufferToUpperCase(char* buf, int nbytes) {
+  buf[nbytes] = '\0';
+  int multiplier = 1000;
+  int counter = 0;
+  int prefixBufferLength = 0;
+  while (counter < 4) {
+    prefixBufferLength += (multiplier * (buf[counter] - '0'));
+    multiplier /= 10;
+    counter++;
+  }
+  printf("Raw client msg: %s\n", buf);
+  printf("prefixBufferLength: %d\n", prefixBufferLength);
+
+  if (nbytes > 4 && strlen(buf) > 4) {
+    if (buf[4] != ' ') {
+      buf[4] = toupper(buf[4]);
+    }
+    int j = 5;
+    for (; j < strlen(buf); j++) {
+      if (buf[j - 1] == ' ') {
+        buf[j] = toupper(buf[j]);
+        continue;
+      }
+      if (buf[j] != ' ') {
+        buf[j] = tolower(buf[j]);
+      }
+    }
+  }
+  printf("Client response: ");
+  int j = 4;
+  for (;j < nbytes; j++){
+    printf("%c", buf[j]);
+  }
+  printf("\n");
+}
 
 int main(int argc, char const *argv[]) {
+  fd_set master;
+  fd_set read_fds;
+  int fdmax;
 
-  int sockfd;
-  struct addrinfo hints, *servinfo, *p;
-  struct sockaddr_storage their_addr; // connector's address information
+  int listener;
+  int newfd;
+  struct sockaddr_storage remoteaddr;
+  socklen_t addrlen;
+  char buf[256];
+  int nbytes;
+
+  // allows us to figure out our IP
   socklen_t ourIPLen = sizeof(struct sockaddr);
   struct sockaddr_in our_addr;
-  socklen_t sin_size;
-  struct sigaction sa;
-  char ipstr[INET6_ADDRSTRLEN];
-  int status;
-  int yes = 1;
+  size_t hostnameLength;
+  char* SERVER_ADDRESS;
 
+  char remoteIP[INET6_ADDRSTRLEN];
+  int yes=1;
+  int i, j, rv;
+  struct addrinfo hints, *ai, *p;
+  FD_ZERO(&master);
+  FD_ZERO(&read_fds);
+
+  // get us a socket and bind it
   memset(&hints, 0, sizeof hints);
   hints.ai_family = AF_UNSPEC;
   hints.ai_socktype = SOCK_STREAM;
   hints.ai_flags = AI_PASSIVE;
-
-  if ((status = getaddrinfo(NULL, "0", &hints, &servinfo)) != 0) {
-    printf("%d\n", status);
-    fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(status));
-    return 1;
+  if ((rv = getaddrinfo(NULL, "0", &hints, &ai)) != 0) {
+    fprintf(stderr, "selectserver: %s\n", gai_strerror(rv));
+    exit(1);
   }
 
-  for(p = servinfo;p != NULL; p = p->ai_next) {
-    if ((sockfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) == -1) {
-      perror("server: socket");
+  for(p = ai; p != NULL; p = p->ai_next) {
+    listener = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
+    if (listener < 0) {
       continue;
     }
-
-    // reuse port if I was using it
-    if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int)) == -1) {
-      perror("setsockopt");
-      exit(1);
-    }
-
-    if (bind(sockfd, p->ai_addr, p->ai_addrlen) == -1) {
-      close(sockfd);
-      perror("server: bind");
+    setsockopt(listener, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int));
+    if (bind(listener, p->ai_addr, p->ai_addrlen) < 0) {
+      close(listener);
       continue;
     }
-
     break;
   }
-  if (getsockname(sockfd, (struct sockaddr *) &our_addr, &ourIPLen) == -1) {
+  if (getsockname(listener, (struct sockaddr *) &our_addr, &ourIPLen) == -1) {
     perror("Cannot figure out which port I am bounded to");
     exit(1);
   }
-  char* SERVER_ADDRESS = inet_ntoa(our_addr.sin_addr);
   int SERVER_PORT = ntohs(our_addr.sin_port);
+  if (gethostname(SERVER_ADDRESS, hostnameLength) == -1) {
+    perror("Cannot figure out which address I am bounded to");
+    exit(1);
+  }
+  // char* SERVER_ADDRESS = inet_ntoa(our_addr.sin_addr);
   FILE* f = fopen(".serverport", "w");
   if (f != NULL) {
     fprintf(f, "%d", SERVER_PORT);
@@ -121,95 +139,72 @@ int main(int argc, char const *argv[]) {
   }
 
   printf("SERVER_ADDRESS %s\nSERVER_PORT %d\n", SERVER_ADDRESS, SERVER_PORT);
-  freeaddrinfo(servinfo);
 
   if (p == NULL) {
-    fprintf(stderr, "server: failed to bind\n");
-    exit(1);
+    fprintf(stderr, "selectserver: failed to bind\n");
+    exit(2);
   }
+  freeaddrinfo(ai);
 
-  if (listen(sockfd, BACKLOG) == -1) {
+  if (listen(listener, MAX_CLIENT) == -1) {
     perror("listen");
-    exit(1);
+    exit(3);
   }
+  FD_SET(listener, &master);
+  fdmax = listener;
 
-  sa.sa_handler = sigchld_handler; // reap all dead processes
-  sigemptyset(&sa.sa_mask);
-  sa.sa_flags = SA_RESTART;
-  if (sigaction(SIGCHLD, &sa, NULL) == -1) {
-    perror("sigaction");
-    exit(1);
-  }
-
-  printf("server: waiting for connections...\n");
-
-  while (1) {  // main accept() loop
-    sin_size = sizeof their_addr;
-    int new_fd = accept(sockfd, (struct sockaddr *)&their_addr, &sin_size);
-    if (new_fd == -1) {
-      perror("accept");
-      continue;
+  // main loop
+  while (1) {
+    read_fds = master;
+    if (select(fdmax+1, &read_fds, NULL, NULL, NULL) == -1) {
+      perror("select");
+      exit(4);
     }
 
-    inet_ntop(their_addr.ss_family, get_in_addr((struct sockaddr *)&their_addr), ipstr, sizeof ipstr);
-    printf("server: got connection from %s\n", ipstr);
+    // run through the existing connections looking for data to read
+    for(i = 0; i <= fdmax; i++) {
+      if (FD_ISSET(i, &read_fds)) {
+        if (i == listener) {
+          // handle new connections
+          addrlen = sizeof remoteaddr;
+          newfd = accept(listener, (struct sockaddr *)&remoteaddr, &addrlen);
 
-    if (!fork()) { // this is the child process
-      close(sockfd); // child doesn't need the listener
-      char buf[MAXDATASIZE];
-      bzero(buf, MAXDATASIZE);
-
-      int numbytes = read(new_fd, buf, MAXDATASIZE);
-      if (numbytes == -1) {
-        perror("ERROR reading from socket");
-      }
-
-      if (numbytes < 4) {
-        perror("ERROR received less then 4 bytes, cant even tell what the length of the proceeding string is..........");
-      }
-
-      buf[numbytes] = '\0';
-      int multiplier = 1000;
-      int counter = 0;
-      int prefixBufferLength = 0;
-      while (counter < 4) {
-        prefixBufferLength += (multiplier * (buf[counter] - '0'));
-        multiplier /= 10;
-        counter++;
-      }
-      printf("Raw client msg: %s\n", buf);
-      printf("prefixBufferLength: %d\n", prefixBufferLength);
-
-      if (numbytes > 4 && strlen(buf) > 4) {
-        if (buf[4] != ' ') {
-          buf[4] = toupper(buf[4]);
-        }
-        int i = 5;
-        for (; i < strlen(buf); i++) {
-          if (buf[i - 1] == ' ') {
-            buf[i] = toupper(buf[i]);
-            continue;
+          if (newfd == -1) {
+            perror("accept");
+          } else {
+            FD_SET(newfd, &master);
+            if (newfd > fdmax) {
+              fdmax = newfd;
+            }
+            printf("selectserver: new connection from %s on socket %d\n", inet_ntop(remoteaddr.ss_family, get_in_addr((struct sockaddr*)&remoteaddr), remoteIP, INET6_ADDRSTRLEN), newfd);
           }
-          if (buf[i] != ' ') {
-            buf[i] = tolower(buf[i]);
+        } else {
+          // handle data from a client
+          if ((nbytes = recv(i, buf, sizeof buf, 0)) <= 0) {
+            if (nbytes == 0) {
+              printf("selectserver: socket %d hung up\n", i);
+            } else {
+              perror("recv");
+            }
+            close(i);
+            FD_CLR(i, &master);
+          } else {
+            // we got some data from a client
+            if (nbytes < 4) {
+              perror("ERROR received less then 4 bytes, cant even tell what the length of the proceeding string is..........");
+            }
+
+            modifyBufferToUpperCase(buf, nbytes);
+
+            // doesnt send the whole string potentially, send returns the number of chars it does
+            if (write(i, buf, strlen(buf)) == -1) {
+              perror("ERROR writing to socket");
+            }
           }
+
         }
       }
-      printf("Client response: ");
-      int i = 4;
-      for (; i < numbytes; ++i){
-        printf("%c", buf[i]);
-      }
-      printf("\n");
-
-      // doesnt send the whole string potentially, send returns the number of chars it does
-      if (write(new_fd, buf, strlen(buf)) == -1) {
-        perror("ERROR writing to socket");
-      }
-      close(new_fd);
-      exit(0);
     }
-    close(new_fd);  //TODO do i need this line parent doesn't need this
   }
 
   return 0;

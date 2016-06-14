@@ -1,13 +1,17 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <ctype.h>
 #include <unistd.h>
 #include <errno.h>
-#include <netdb.h>
 #include <string.h>
 #include <sys/types.h>
-#include <netinet/in.h>
 #include <sys/socket.h>
+#include <netinet/in.h>
+#include <netdb.h>
 #include <arpa/inet.h>
+#include <sys/wait.h>
+#include <signal.h>
+#include <sys/time.h>
 
 #define MAXDATASIZE 255 // max number of bytes we can get at once
 
@@ -24,6 +28,8 @@ int main(int argc, char *argv[]) {
   char* SERVER_PORT;
   SERVER_ADDRESS = getenv("SERVER_ADDRESS");
   SERVER_PORT = getenv("SERVER_PORT");
+
+  // printf("%s:%s\n", SERVER_ADDRESS, SERVER_PORT);
 
   int sockfd, numbytes;
   struct addrinfo hints, *servinfo, *p;
@@ -134,8 +140,7 @@ int main(int argc, char *argv[]) {
 - sleep for 2 seconds before sending each subsequent msg
 - allow multiplexing (aka you can get input from user AND send/receive msgs)
 - on eof, wait until you receive all the sent requests before exiting
-- ?????? unsure what to do if message is > 251 chars ???????
-- what is the point of having the string length at the beginning of the message
+- must support over 256 character strings from stdin
 */
 
 /* done

@@ -85,8 +85,7 @@ int main(int argc, char const *argv[]) {
   // allows us to figure out our IP
   socklen_t ourIPLen = sizeof(struct sockaddr);
   struct sockaddr_in our_addr;
-  size_t hostnameLength;
-  char* SERVER_ADDRESS;
+  char SERVER_ADDRESS[256];
 
   char remoteIP[INET6_ADDRSTRLEN];
   int yes=1;
@@ -122,7 +121,7 @@ int main(int argc, char const *argv[]) {
     exit(1);
   }
   int SERVER_PORT = ntohs(our_addr.sin_port);
-  if (gethostname(SERVER_ADDRESS, hostnameLength) == -1) {
+  if (gethostname(SERVER_ADDRESS, 255) == -1) {
     perror("Cannot figure out which address I am bounded to");
     exit(1);
   }
@@ -152,6 +151,7 @@ int main(int argc, char const *argv[]) {
   }
   FD_SET(listener, &master);
   fdmax = listener;
+
 
   // main loop
   while (1) {

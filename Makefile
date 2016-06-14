@@ -8,4 +8,3 @@ PORT=`cat .serverport`
 
 runClient:
 	@SERVER_ADDRESS=$(ADDR) SERVER_PORT=$(PORT) ./stringClient
-

@@ -34,40 +34,24 @@ void *get_in_addr(struct sockaddr *sa) {
     return &(((struct sockaddr_in6*)sa)->sin6_addr);
 }
 
-void modifyBufferToUpperCase(char* buf, int nbytes) {
-  buf[nbytes] = '\0';
-  int multiplier = 1000;
-  int counter = 0;
-  int prefixBufferLength = 0;
-  while (counter < 4) {
-    prefixBufferLength += (multiplier * (buf[counter] - '0'));
-    multiplier /= 10;
-    counter++;
-  }
-  printf("Raw client msg: %s\n", buf);
-  printf("prefixBufferLength: %d\n", prefixBufferLength);
+void modifyBufferToUpperCase(char* buffer, int nbytes, int offset) {
+  buffer[nbytes] = '\0';
 
-  if (nbytes > 4 && strlen(buf) > 4) {
-    if (buf[4] != ' ') {
-      buf[4] = toupper(buf[4]);
+  if (nbytes > offset && strlen(buffer+offset) > 0) {
+    if (buffer[offset] != ' ') {
+      buffer[offset] = toupper(buffer[offset]);
     }
-    int j = 5;
-    for (; j < strlen(buf); j++) {
-      if (buf[j - 1] == ' ') {
-        buf[j] = toupper(buf[j]);
+    int j = offset + 1;
+    for (; j < strlen(buffer + 4) + 4; j++) {
+      if (buffer[j - 1] == ' ') {
+        buffer[j] = toupper(buffer[j]);
         continue;
       }
-      if (buf[j] != ' ') {
-        buf[j] = tolower(buf[j]);
+      if (buffer[j] != ' ') {
+        buffer[j] = tolower(buffer[j]);
       }
     }
   }
-  printf("Client response: ");
-  int j = 4;
-  for (;j < nbytes; j++){
-    printf("%c", buf[j]);
-  }
-  printf("\n");
 }
 
 int main(int argc, char const *argv[]) {
@@ -176,7 +160,7 @@ int main(int argc, char const *argv[]) {
             if (newfd > fdmax) {
               fdmax = newfd;
             }
-            printf("selectserver: new connection from %s on socket %d\n", inet_ntop(remoteaddr.ss_family, get_in_addr((struct sockaddr*)&remoteaddr), remoteIP, INET6_ADDRSTRLEN), newfd);
+            // printf("selectserver: new connection from %s on socket %d\n", inet_ntop(remoteaddr.ss_family, get_in_addr((struct sockaddr*)&remoteaddr), remoteIP, INET6_ADDRSTRLEN), newfd);
           }
         } else {
           // handle data from a client
@@ -193,15 +177,27 @@ int main(int argc, char const *argv[]) {
             if (nbytes < 4) {
               perror("ERROR received less then 4 bytes, cant even tell what the length of the proceeding string is..........");
             }
+            //TODO what if prefixBufferLength != nbytes?
+            unsigned int prefixBufferLength;
+            memcpy(&prefixBufferLength, &buf, 4);
+            // printf("pre: %d, ", prefixBufferLength);
+            prefixBufferLength = ntohl(prefixBufferLength);
 
-            modifyBufferToUpperCase(buf, nbytes);
+            // printf("prefixBufferLength: %d\n", prefixBufferLength);
+            printf("Raw client msg: '%s'\n", buf+4);
+            modifyBufferToUpperCase(buf, nbytes, 4);
+
+            printf("Response to client: %s", buf+4);
+            // int j = 4;
+            // for (;j < nbytes; j++){
+            //   printf("%c", buf[j]);
+            // }
 
             // doesnt send the whole string potentially, send returns the number of chars it does
-            if (write(i, buf, strlen(buf)) == -1) {
+            if (write(i, buf, nbytes) == -1) {
               perror("ERROR writing to socket");
             }
           }
-
         }
       }
     }

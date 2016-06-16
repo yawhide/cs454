@@ -102,7 +102,7 @@ void readInput() {
         break;
       }
       // printf("--- read from stdin: %s ---\n", fgetsInput);
-      // printf("%s", fgetsInput);
+      printf("%s", fgetsInput);
       int j = 0;
       for (; j < strlen(fgetsInput); j++) {
         i.input += fgetsInput[j];

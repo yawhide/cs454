@@ -13,6 +13,7 @@
 #include <signal.h>
 #include <sys/time.h>
 
+#include <iostream>
 #include <mutex>
 #include <queue>
 #include <thread>
@@ -20,41 +21,60 @@
 #define MAX_MSG_LENGTH (256 - 4 - 1) // max number of bytes we can get at once from stdin
 
 struct I {
-  char input[MAX_MSG_LENGTH];
+  // char input[MAX_MSG_LENGTH];
+  std::string input;
 };
 
 std::queue<I> buffer;
 std::mutex bufferMutex;
 
-void sendMsgToServer(int sock, char* buffer) {
-  unsigned int inputLen = strlen(buffer);
-  int nBytes;
-  char msg[256];
-  bzero(msg, 256);
-  unsigned int msgLength = htonl(inputLen);
-  // printf("input len: %d, msgLength: %d\n", inputLen, msgLength);
-  memcpy(msg, &msgLength, 4);
-  memcpy(msg+4, buffer, inputLen);
-  // printf("msg: '%s'\n", msg+4);
+bool endOfInput = false;
 
-  // printf("final formatted msg: '%s', last char is '\\0': %d\n", buf, buf[tmpBufLen] == '\0');
+void sendMsgToServer(int sock, std::string input) {
+  int i = 0;
+  std::string output = "Server: ";
+  while (i < input.length()) {
+    // const char* buffer = input.substr(i, i+MAX_MSG_LENGTH).c_str();
+    std::string curStr = input.substr(i, i+MAX_MSG_LENGTH);
+    // std::cout << "input substr: '" << curStr << "'" << std::endl;
+    char buffer[MAX_MSG_LENGTH + 1];
+    int k = 0;
+    for (; k < curStr.length(); k++) {
+      buffer[k] = curStr[k];
+    }
+    buffer[curStr.length()] = '\0';
+    // printf("buffer: '%s'\n", buffer);
+    unsigned int inputLen = strlen(buffer);
+    int nBytes;
+    char msg[256];
+    bzero(msg, 256);
+    unsigned int msgLength = htonl(inputLen);
+    // printf("input len: %d <= 251, msgLength: %d\n", inputLen, msgLength);
+    memcpy(msg, &msgLength, 4);
+    memcpy(msg+4, buffer, inputLen);
+    // printf("msg: '%s'\n", msg+4);
 
-  if (write(sock, msg, inputLen + 4) == -1) {
-    perror("ERROR writing to socket");
+    // printf("final formatted msg: '%s', last char is '\\0': %d\n", buf, buf[tmpBufLen] == '\0');
+
+    if (write(sock, msg, inputLen + 4) == -1) {
+      perror("ERROR writing to socket");
+    }
+
+    char response[256];
+    if ((nBytes = read(sock, response, 255)) == -1) {
+      perror("recv");
+      exit(1);
+    }
+    response[nBytes] = '\0';
+    // printf("response: '%s'\n", response+4);
+    int j = 4;
+    for (; j < nBytes; j++) {
+      output += response[j];
+    }
+    i += inputLen;
   }
-
-  char response[256];
-  if ((nBytes = read(sock, response, 255)) == -1) {
-    perror("recv");
-    exit(1);
-  }
-
-  response[nBytes] = '\0';
-  printf("Server: %s", response+4);
-  // int i = 4;
-  // for (; i < nBytes; ++i) {
-  //   printf("%c", response[i]);
-  // }
+  // printf("%s", output);
+  std::cout << output;
 }
 
 void *get_in_addr(struct sockaddr *sa) {
@@ -68,29 +88,50 @@ void *get_in_addr(struct sockaddr *sa) {
 void readInput() {
   // char input[MAX_MSG_LENGTH]; // +1 for null terminator
   // bzero(input, MAX_MSG_LENGTH);
-  I i;
-  while (fgets(i.input, MAX_MSG_LENGTH, stdin) != NULL) {
-    // printf("--- read from stdin: %s ---\n", i.input);
+  while (true) {
+    I i;
+    i.input = "";
+    char fgetsInput[MAX_MSG_LENGTH];
+    while (true) {
+      if (fgets(fgetsInput, MAX_MSG_LENGTH, stdin) == NULL) {
+        break;
+      }
+      // printf("--- read from stdin: %s ---\n", fgetsInput);
+      int j = 0;
+      for (; j < strlen(fgetsInput); j++) {
+        i.input += fgetsInput[j];
+      }
+      if (i.input[i.input.length() - 1] == '\n') {
+        break;
+      }
+    }
     bufferMutex.lock();
     buffer.push(i);
     bufferMutex.unlock();
   }
   // printf("%s\n", input);
-  perror("Failed to get input from user");
+  // perror("Failed to get input from user");
 }
 
 void sendRequests(int sock) {
-  while (1) {
+  while (true) {
     bufferMutex.lock();
     if (!buffer.empty()) {
       I i = buffer.front();
       // printf("--- first thing in buffer: %s ---\n", i.input);
       buffer.pop();
       bufferMutex.unlock();
+      if (i.input.length() == 0) {
+        sleep(2);
+        continue;
+      }
       sendMsgToServer(sock, i.input);
       sleep(2);
     } else {
       bufferMutex.unlock();
+      if (endOfInput) {
+        break;
+      }
     }
   }
 }

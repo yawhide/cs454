@@ -1,7 +1,6 @@
 all:
 	@g++ -o stringServer server.cpp
 	@g++ -o stringClient -std=c++11 -pthread client.cpp
-	@./stringServer
 
 ADDR=`cat .serveraddr`
 PORT=`cat .serverport`

@@ -166,7 +166,7 @@ int main(int argc, char const *argv[]) {
           // handle data from a client
           if ((nbytes = recv(i, buf, sizeof buf, 0)) <= 0) {
             if (nbytes == 0) {
-              printf("selectserver: socket %d hung up\n", i);
+              // printf("selectserver: socket %d hung up\n", i);
             } else {
               perror("recv");
             }
@@ -184,10 +184,10 @@ int main(int argc, char const *argv[]) {
             prefixBufferLength = ntohl(prefixBufferLength);
 
             // printf("prefixBufferLength: %d\n", prefixBufferLength);
-            printf("Raw client msg: '%s'\n", buf+4);
+            // printf("Raw client msg: '%s'\n", buf+4);
             modifyBufferToUpperCase(buf, nbytes, 4);
 
-            printf("Response to client: %s", buf+4);
+            // printf("Response to client: %s", buf+4);
             // int j = 4;
             // for (;j < nbytes; j++){
             //   printf("%c", buf[j]);

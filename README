@@ -4,3 +4,4 @@ this may have been used to do the title case
 http://stackoverflow.com/questions/5590381/easiest-way-to-convert-int-to-string-in-c
 
 Run `make` to build the two binaries, then run the commands. For a cool shortcut, run `makeClient` which reads two files `.serveraddr` and `.serverport` and automatically puts them as the env args for `./stringClient`!
+

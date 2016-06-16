@@ -35,9 +35,11 @@ void sendMsgToServer(int sock, std::string input) {
   std::string output = "Server: ";
   while (i < input.length()) {
     // const char* buffer = input.substr(i, i+MAX_MSG_LENGTH).c_str();
-    std::string curStr = input.substr(i, i+MAX_MSG_LENGTH);
-    // std::cout << "input substr: '" << curStr << "'" << std::endl;
+    // printf("%d %lu\n", i, input.length(), MAX_MSG_LENGTH);
+    std::string curStr = input.substr(i, MAX_MSG_LENGTH);
+    // std::cout << "input substr: '" << curStr << "' " << i << " " << curStr.length() << std::endl;
     char buffer[MAX_MSG_LENGTH + 1];
+    bzero(buffer, MAX_MSG_LENGTH + 1);
     int k = 0;
     for (; k < curStr.length(); k++) {
       buffer[k] = curStr[k];
@@ -48,12 +50,13 @@ void sendMsgToServer(int sock, std::string input) {
     int nBytes;
     char msg[256];
     bzero(msg, 256);
+    // printf("test\n");
     unsigned int msgLength = htonl(inputLen);
     // printf("input len: %d <= 251, msgLength: %d\n", inputLen, msgLength);
     memcpy(msg, &msgLength, 4);
     memcpy(msg+4, buffer, inputLen);
     // printf("msg: '%s'\n", msg+4);
-
+    // printf("test\n");
     // printf("final formatted msg: '%s', last char is '\\0': %d\n", buf, buf[tmpBufLen] == '\0');
 
     if (write(sock, msg, inputLen + 4) == -1) {
@@ -71,6 +74,7 @@ void sendMsgToServer(int sock, std::string input) {
     for (; j < nBytes; j++) {
       output += response[j];
     }
+    // printf("test %d\n", inputLen);
     i += inputLen;
   }
   // printf("%s", output);
@@ -91,13 +95,14 @@ void readInput() {
   while (true) {
     I i;
     i.input = "";
-    char fgetsInput[MAX_MSG_LENGTH];
     while (true) {
+      char fgetsInput[MAX_MSG_LENGTH];
+      bzero(fgetsInput, MAX_MSG_LENGTH);
       if (fgets(fgetsInput, MAX_MSG_LENGTH, stdin) == NULL) {
         break;
       }
       // printf("--- read from stdin: %s ---\n", fgetsInput);
-      printf("%s", fgetsInput);
+      // printf("%s", fgetsInput);
       int j = 0;
       for (; j < strlen(fgetsInput); j++) {
         i.input += fgetsInput[j];

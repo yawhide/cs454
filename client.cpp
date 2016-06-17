@@ -38,15 +38,15 @@ void sendMsgToServer(int sock, std::string input) {
     // printf("%d %lu\n", i, input.length(), MAX_MSG_LENGTH);
     std::string curStr = input.substr(i, MAX_MSG_LENGTH);
     // std::cout << "input substr: '" << curStr << "' " << i << " " << curStr.length() << std::endl;
-    char buffer[MAX_MSG_LENGTH + 1];
-    bzero(buffer, MAX_MSG_LENGTH + 1);
+    char buf[MAX_MSG_LENGTH + 1];
+    bzero(buf, MAX_MSG_LENGTH + 1);
     int k = 0;
     for (; k < curStr.length(); k++) {
-      buffer[k] = curStr[k];
+      buf[k] = curStr[k];
     }
-    buffer[curStr.length()] = '\0';
-    // printf("buffer: '%s'\n", buffer);
-    unsigned int inputLen = strlen(buffer);
+    buf[curStr.length()] = '\0';
+    // printf("buf: '%s'\n", buf);
+    unsigned int inputLen = strlen(buf);
     int nBytes;
     char msg[256];
     bzero(msg, 256);
@@ -54,7 +54,7 @@ void sendMsgToServer(int sock, std::string input) {
     unsigned int msgLength = htonl(inputLen);
     // printf("input len: %d <= 251, msgLength: %d\n", inputLen, msgLength);
     memcpy(msg, &msgLength, 4);
-    memcpy(msg+4, buffer, inputLen);
+    memcpy(msg+4, buf, inputLen);
     // printf("msg: '%s'\n", msg+4);
     // printf("test\n");
     // printf("final formatted msg: '%s', last char is '\\0': %d\n", buf, buf[tmpBufLen] == '\0');
@@ -89,7 +89,7 @@ void *get_in_addr(struct sockaddr *sa) {
   return &(((struct sockaddr_in6*)sa)->sin6_addr);
 }
 
-void readInput() {
+int readInput() {
   // char input[MAX_MSG_LENGTH]; // +1 for null terminator
   // bzero(input, MAX_MSG_LENGTH);
   while (true) {
@@ -99,7 +99,9 @@ void readInput() {
       char fgetsInput[MAX_MSG_LENGTH];
       bzero(fgetsInput, MAX_MSG_LENGTH);
       if (fgets(fgetsInput, MAX_MSG_LENGTH, stdin) == NULL) {
-        break;
+        // printf("done reading input...kill our thread, end of input: %d\n", endOfInput);
+        endOfInput = true;
+        return 0;
       }
       // printf("--- read from stdin: %s ---\n", fgetsInput);
       printf("%s", fgetsInput);
@@ -119,10 +121,11 @@ void readInput() {
   // perror("Failed to get input from user");
 }
 
-void sendRequests(int sock) {
+int sendRequests(int sock) {
   while (true) {
     bufferMutex.lock();
-    if (!buffer.empty()) {
+    // printf("is buffer empty? %d\n", buffer.size());
+    if (buffer.size() > 0) {
       I i = buffer.front();
       // printf("--- first thing in buffer: %s ---\n", i.input);
       buffer.pop();
@@ -134,12 +137,15 @@ void sendRequests(int sock) {
       sendMsgToServer(sock, i.input);
       sleep(2);
     } else {
-      bufferMutex.unlock();
       if (endOfInput) {
+        bufferMutex.unlock();
         break;
       }
+      bufferMutex.unlock();
     }
   }
+  // printf("done sending requests....kill our thread, endOfInput: %d\n", endOfInput);
+  return 0;
 }
 
 int main(int argc, char *argv[]) {
@@ -179,7 +185,6 @@ int main(int argc, char *argv[]) {
 
     break;
   }
-
   if (p == NULL) {
     fprintf(stderr, "client: failed to connect\n");
     return 2;
